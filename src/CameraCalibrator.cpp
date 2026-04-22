@@ -1,36 +1,7 @@
-/**
- * @file CameraCalibrator.cpp
- * @brief 相机标定器实现文件 - 实现相机标定的核心逻辑和算法
- * 
- * 本文件实现了CameraCalibrator类的所有功能，包括图像加载、角点检测、标定计算、
- * 误差分析等完整的相机标定流程。支持多种标定板类型和标定算法。
- * 
- * @author 系统开发组
- * @date 2026-04-20
- * @version 1.0.0
- * 
- * @section 实现要点
- * - 使用OpenCV标定算法进行相机参数计算
- * - 支持棋盘格、Charuco、Aruco、AprilTag标定板
- * - 自动图像加载和角点检测
- * - 重投影误差计算和精度评估
- * - 像素到世界坐标转换功能
- * 
- * @section 算法流程
- * 1. 构造函数：根据配置初始化相应标定板
- * 2. addImages()：从文件夹加载标定图像
- * 3. getCorners()/getCornersSB()：角点检测
- * 4. calibrate()：进行标定计算
- * 5. calReprojectionError()：计算重投影误差
- */
-
 #include "CameraCalibrator.h"
 #include "Utils.h"
 
-/**
- * @brief 带配置参数的构造函数
- * @param config 相机标定配置参数
- */
+
 CameraCalibrator::CameraCalibrator(const CameraCalibConfig& config)
     : m_boardSize(config.boardSize),
       m_squareSize(config.squareSize),
@@ -38,8 +9,7 @@ CameraCalibrator::CameraCalibrator(const CameraCalibConfig& config)
       m_dictionary(config.dictionary),
       m_imagesFolder(config.imagesFolder)
 {
-    if (config.plateType == PlateType::Charuco)
-    {
+    if (config.plateType == PlateType::Charuco) {
         // 确保使用正确的正方形尺寸和标记尺寸
         // 注意：CharucoBoard::create接收的是网格尺寸（squaresX, squaresY），UI传入的是角点数，需+1
         m_board = cv::aruco::CharucoBoard::create(
@@ -51,8 +21,7 @@ CameraCalibrator::CameraCalibrator(const CameraCalibConfig& config)
             LOG_OUTPUT(Warn, "Marker size should be smaller than square size for proper Charuco board");
         }
     }
-    else if (config.plateType == PlateType::Aruco)
-    {
+    else if (config.plateType == PlateType::Aruco) {
         float markerSeparation = config.squareSize.width - config.markerSize.width;
         if (markerSeparation < 0) markerSeparation = 0;
         
@@ -63,38 +32,27 @@ CameraCalibrator::CameraCalibrator(const CameraCalibConfig& config)
     }
 }
 
-/**
- * @brief 析构函数
- * 
- * 清理类实例占用的资源，释放OpenCV相关的智能指针和容器
- */
-CameraCalibrator::~CameraCalibrator()
-{
+CameraCalibrator::~CameraCalibrator() {
 
 }
 
-std::vector<std::vector<cv::Point2f>> CameraCalibrator::getImageCornersVec() const
-{
+std::vector<std::vector<cv::Point2f>> CameraCalibrator::getImageCornersVec() const {
     return m_imageCornersVec;
 }
 
-std::vector<std::vector<cv::Point3f>> CameraCalibrator::getObjectCornersVec() const
-{
+std::vector<std::vector<cv::Point3f>> CameraCalibrator::getObjectCornersVec() const {
     return  m_objectCornersVec;
 }
 
-std::vector<int> CameraCalibrator::getValidIndices() const
-{
+std::vector<int> CameraCalibrator::getValidIndices() const {
     return m_validIndices;
 }
 
 bool CameraCalibrator::undistortImage(const cv::Mat& inputImage,
     const cv::Mat& intrinsics, const cv::Mat& distCoeffs, cv::Mat& undistortedImage,
-    cv::InterpolationFlags flags)
-{
+    cv::InterpolationFlags flags) {
     // 输入检查
-    if (inputImage.empty())
-    {
+    if (inputImage.empty()) {
         LOG_OUTPUT(Error, "Input image for undistortion is empty");
         return false;
     }
@@ -136,8 +94,7 @@ bool CameraCalibrator::undistortImage(const cv::Mat& inputImage,
     return true;
 }
 
-bool CameraCalibrator::getCorners(int findChessBoardCornersFlags)
-{
+bool CameraCalibrator::getCorners(int findChessBoardCornersFlags) {
     // 检查输入有效性
     if (m_images.empty()) {
         LOG_OUTPUT(Error, "Image data is empty, cannot perform calibration");
@@ -229,8 +186,7 @@ bool CameraCalibrator::getCorners(int findChessBoardCornersFlags)
     return true;
 }
 
-bool CameraCalibrator::getCornersSB(int findChessBoardCornersFlags)
-{
+bool CameraCalibrator::getCornersSB(int findChessBoardCornersFlags) {
     // 检查输入有效性
     if (m_images.empty()) {
         LOG_OUTPUT(Error, "Image data is empty, cannot perform calibration");
@@ -311,33 +267,26 @@ bool CameraCalibrator::getCornersSB(int findChessBoardCornersFlags)
     return true;
 }
 
-bool CameraCalibrator::genObjectCorners()
-{
-    if (m_imageCornersVec.empty()) {
-        LOG_OUTPUT(Error, "No image corners available");
-        return false;
-    }
-    
+bool CameraCalibrator::genOjbectCorners() {
     m_objectCornersVec.clear();
-    for (size_t imgIdx = 0; imgIdx < m_imageCornersVec.size(); imgIdx++) {
+    for (int t = 0; t < m_imageCornersVec.size(); t++) {
         std::vector<cv::Point3f> tempPoints;
-        for (int row = 0; row < m_boardSize.height; row++) {
-            for (int col = 0; col < m_boardSize.width; col++) {
+        for (int i = 0; i < m_boardSize.height; i++) {
+            for (int j = 0; j < m_boardSize.width; j++) {
                 tempPoints.emplace_back(
-                    col * m_squareSize.width,
-                    row * m_squareSize.height,
+                    j * m_squareSize.width,
+                    i * m_squareSize.height,
                     0.0f
                 );
             }
         }
-        if (tempPoints.size() != m_imageCornersVec[imgIdx].size()) {
+        if (tempPoints.size() != m_imageCornersVec[t].size()) { // 关键检查
             LOG_OUTPUT(Error, "Object points and image corner points count mismatch");
             return false;
         }
         m_objectCornersVec.push_back(tempPoints);
     }
     LOG_OUTPUT(Info, "Generate object corners successfully");
-    return true;
 }
 
 /**
@@ -345,9 +294,14 @@ bool CameraCalibrator::genObjectCorners()
  * @param scaleFactor 可选缩放因子，0表示自动计算
  * @param waitTime 显示时间(ms)，0表示等待按键
  */
+ /**
+  * @brief 显示带有棋盘格角点的图像（自动缩放适应屏幕）
+  * @param scaleFactor 可选缩放因子，0表示自动计算
+  * @param waitTime 显示时间(ms)，0表示等待按键
+  */
 bool CameraCalibrator::showCornersImages(float scaleFactor, int waitTime) const {
     if (m_debugDraws.empty()) {
-        LOG_OUTPUT(Warn, "No corner images to display");
+        std::cerr << "Warning: No corner images to display" << std::endl;
         return false;
     }
 
@@ -410,28 +364,14 @@ bool CameraCalibrator::showCornersImages(float scaleFactor, int waitTime) const 
             }
         }
         catch (const cv::Exception& e) {
-            LOG_OUTPUT(Warn, ("Warning: Failed to destroy window '" + windowName + "': " + e.what()).c_str());
+            std::cerr << "Warning: Failed to destroy window '" << windowName
+                << "': " << e.what() << std::endl;
         }
     }
 
     return true;
 }
 
-/**
- * @brief 执行相机标定计算
- * @param calibrateCameraFlags 标定算法控制标志位
- * @param calibrateCameraC 算法终止条件
- * @return true-标定成功 false-标定失败
- * 
- * 本函数执行完整的相机标定流程：
- * 1. 数据准备：检查角点数据和标定板参数有效性
- * 2. 执行标定：调用OpenCV的calibrateCamera算法
- * 3. 结果存储：保存内参矩阵、畸变系数、外参向量等
- * 4. 精度评估：计算重投影误差RMS并记录
- * 
- * @note 需要调用角点检测函数(addCorners)和标定板坐标生成函数(addObjectCorners)进行数据准备
- * @note 标定成功RMS值应小于2.0像素，过大表示标定精度不足
- */
 bool CameraCalibrator::calibrate(int calibrateCameraFlags,
     const cv::TermCriteria& calibrateCameraC) {
 
@@ -453,6 +393,14 @@ bool CameraCalibrator::calibrate(int calibrateCameraFlags,
     }
     catch (const cv::Exception& e) {
         LOG_OUTPUT(Error, e.what());
+        //std::cerr << "OpenCV Error: " << e.what() << "\n"
+        //    << "ObjectPoints: " << m_objectCornersVec.size() << " sets\n"
+        //    << "ImageCorners: " << m_imageCornersVec.size() << " sets\n"
+        //    << "ImageSize: " << m_imageSize << std::endl;
+        //std::cerr << "Intrinsics matrix: " << intrinsics << "\n"
+        //    << "Distortion coeffs: " << distCoeffs << "\n"
+        //    << "First object points: " << m_objectCornersVec[0] << "\n"
+        //    << "First image corners: " << m_imageCornersVec[0] << std::endl;
         return false;
     }
 
@@ -488,8 +436,7 @@ bool CameraCalibrator::calibrate(int calibrateCameraFlags,
     return true;
 }
 
-bool CameraCalibrator::calReprojectionError()
-{
+bool CameraCalibrator::calReprojectionError() {
     // 1. 输入验证
     if (m_objectCornersVec.empty() || m_imageCornersVec.empty()) {
         LOG_OUTPUT(Error, "Object points or image corner points data is empty");
@@ -521,22 +468,10 @@ bool CameraCalibrator::calReprojectionError()
 }
 
 /**
- * @brief 从配置文件夹加载所有标定图像
- * @return true-加载成功 false-加载失败
- * 
- * 本函数执行以下操作：
- * 1. 检查图片文件夹路径是否有效
- * 2. 扫描文件夹查找所有支持的图片格式（jpg, jpeg, png, bmp, tif, tiff）
- * 3. 对图片文件进行自然排序（考虑数字序列）
- * 4. 逐一读取并验证图片有效性
- * 5. 检查图片尺寸和类型一致性
- * 
- * @note 要求至少3幅有效图片才能进行标定
- * @note 图片应包含完整的标定板且避免过曝/欠曝
- * @note 支持批量加载，自动跳过损坏的图片文件
+ * @brief 添加图片到校准器
+ * @return true-添加成功 false-添加失败
  */
-bool CameraCalibrator::addImages()
-{
+bool CameraCalibrator::addImages() {
     if (m_imagesFolder.empty()) {
         LOG_OUTPUT(Error, "Image folder path not set");
         return false;
@@ -636,8 +571,7 @@ bool CameraCalibrator::addImages()
  * @brief 检查标定结果矩阵尺寸是否正确
  * @return true-尺寸正确 false-尺寸错误
  */
-inline bool CameraCalibrator::checkResultSize()
-{
+inline bool CameraCalibrator::checkResultSize() {
     // 检查内参矩阵尺寸
     if (m_calibrateResult.intrinsics.rows != 3 || m_calibrateResult.intrinsics.cols != 3) {
         LOG_OUTPUT(Error, "Camera intrinsic matrix size error, should be 3x3 matrix");
@@ -661,8 +595,7 @@ inline bool CameraCalibrator::checkResultSize()
  * @param[out] mainType 输出的主类型(CV_32F或CV_64F)
  * @return true-检查通过 false-检查失败
  */
-inline bool CameraCalibrator::checkType(const std::vector<cv::Mat>& matrixs, int& mainType)
-{
+inline bool CameraCalibrator::checkType(const std::vector<cv::Mat>& matrixs, int& mainType) {
     if (matrixs.empty()) {
         LOG_OUTPUT(Error, "Input matrix list is empty");
         return false;
@@ -743,28 +676,27 @@ bool CameraCalibrator::pixelToWorld(const cv::Point2f& undistoredPoint,
 }
 
 
-bool CameraCalibrator::calcWorldPoints()
-{
-    std::vector<cv::Point2f> undistortedPoints;
+bool CameraCalibrator::calcWorldPoints() {
+    std::vector<cv::Point2f> undistoredPoints;
     cv::Point3f worldPoint;
     m_worldPointsVec.clear();
     m_rvecs_base2camera.clear();
     m_tvecs_base2camera.clear();
     for (size_t i = 0; i < m_imageCornersVec.size(); ++i) {
         try {
-            cv::undistortPoints(m_imageCornersVec[i], undistortedPoints, m_calibrateResult.intrinsics,
+            cv::undistortPoints(m_imageCornersVec[i], undistoredPoints, m_calibrateResult.intrinsics,
                 m_calibrateResult.distCoeffs, cv::noArray(), m_calibrateResult.intrinsics);
         }
         catch (const cv::Exception& e) {
-            LOG_OUTPUT(Error, ("undistortPoints failed: " + std::string(e.what())).c_str());
+            std::cerr << "undistortPoints failed" << std::string(e.what()) << std::endl;
             return false;
         }
         cv::Mat rvec, tvec;
-        cv::solvePnP(m_objectCornersVec[i], undistortedPoints, m_calibrateResult.intrinsics,
+        cv::solvePnP(m_objectCornersVec[i], undistoredPoints, m_calibrateResult.intrinsics,
             m_calibrateResult.distCoeffs, rvec, tvec);
         std::vector<cv::Point3f> worldPoints;
-        for (size_t j = 0; j < undistortedPoints.size(); ++j) {
-            pixelToWorld(undistortedPoints[j], rvec, tvec,
+        for (size_t j = 0; j < undistoredPoints.size(); ++j) {
+            pixelToWorld(undistoredPoints[j], rvec, tvec,
                 worldPoint);
             worldPoints.push_back(worldPoint);
         }
@@ -773,25 +705,24 @@ bool CameraCalibrator::calcWorldPoints()
     return true;
 }
 
-bool CameraCalibrator::calcWorldPointsWithoutPnP()
-{
-    std::vector<cv::Point2f> undistortedPoints;
+bool CameraCalibrator::calcWorldPointsWithoutPnP() {
+    std::vector<cv::Point2f> undistoredPoints;
     cv::Point3f worldPoint;
     m_worldPointsVec.clear();
     m_rvecs_base2camera.clear();
     m_tvecs_base2camera.clear();
     for (size_t i = 0; i < m_imageCornersVec.size(); ++i) {
         try {
-            cv::undistortPoints(m_imageCornersVec[i], undistortedPoints, m_calibrateResult.intrinsics,
+            cv::undistortPoints(m_imageCornersVec[i], undistoredPoints, m_calibrateResult.intrinsics,
                 m_calibrateResult.distCoeffs, cv::noArray(), m_calibrateResult.intrinsics);
         }
         catch (const cv::Exception& e) {
-            LOG_OUTPUT(Error, ("undistortPoints failed: " + std::string(e.what())).c_str());
+            std::cerr << "undistortPoints failed" << std::string(e.what()) << std::endl;
             return false;
         }
         std::vector<cv::Point3f> worldPoints;
-        for (size_t j = 0; j < undistortedPoints.size(); ++j) {
-            pixelToWorld(undistortedPoints[j], m_calibrateResult.rvecsMat[i], m_calibrateResult.tvecsMat[i],
+        for (size_t j = 0; j < undistoredPoints.size(); ++j) {
+            pixelToWorld(undistoredPoints[j], m_calibrateResult.rvecsMat[i], m_calibrateResult.tvecsMat[i],
                 worldPoint);
             worldPoints.push_back(worldPoint);
         }
@@ -800,11 +731,11 @@ bool CameraCalibrator::calcWorldPointsWithoutPnP()
     return true;
 }
 
-bool CameraCalibrator::calcReprojectionErrorReal()
-{
+bool CameraCalibrator::calcReprojectionErrorReal() {
     // 1. 参数校验
     if (m_worldPointsVec.empty()) {
-        LOG_OUTPUT(Error, "World points vector is empty");
+        //LOG_OUTPUT(Error, "Object points or image corner points data is empty");
+        std::cerr << "worldPointsVec is empty" << std::endl;
         return false;
     }
 
@@ -863,8 +794,7 @@ bool CameraCalibrator::calcReprojectionErrorReal()
     return true;
 }
 
-bool CameraCalibrator::calibrateCameraWithCharuco()
-{
+bool CameraCalibrator::calibrateCameraWithCharuco() {
     std::vector<std::vector<cv::Point2f>> allCharucoCorners;
     std::vector<std::vector<int>> allCharucoIds;
     std::vector<std::vector<cv::Point2f>> markerCorners;
@@ -922,9 +852,7 @@ bool CameraCalibrator::calibrateCameraWithCharuco()
             cv::Mat gray;
             if (img.channels() == 3) {
                 cv::cvtColor(img, gray, cv::COLOR_BGR2GRAY);
-            }
-            else
-            {
+            } else {
                 gray = img;
             }
             cv::TermCriteria subpixCriteria(cv::TermCriteria::COUNT + cv::TermCriteria::EPS, 100, 1e-4);
@@ -981,7 +909,7 @@ bool CameraCalibrator::calibrateCameraWithCharuco()
     }
 
     if (allCharucoCorners.empty()) {
-        LOG_OUTPUT(Error, "No valid ChArUco corners detected in any image");
+        std::cerr << "Error: No valid ChArUco corners detected in any image" << std::endl;
         return false;
     }
 
@@ -1067,9 +995,7 @@ bool CameraCalibrator::calibrateCameraWithAruco()
             m_imageCornersVec.push_back(currentImageCorners);
             m_objectCornersVec.push_back(currentImageObjectPoints);
             m_validIndices.push_back(imageIndex);
-        }
-        else
-        {
+        } else {
             std::string msg = "No markers detected in image " + std::to_string(imageIndex);
             if (imageIndex < m_imagePaths.size()) {
                 msg += " (" + m_imagePaths[imageIndex] + ")";

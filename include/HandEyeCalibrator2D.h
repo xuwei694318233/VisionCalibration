@@ -6,11 +6,9 @@
 #include <vector>
 #include "Utils.h"
 
-class CALIBRATION_API HandEyeCalibrator2D
-{
+class CALIBRATION_API HandEyeCalibrator2D {
 public:
-    enum CalibrationMode
-    {
+    enum CalibrationMode {
         EYE_IN_HAND,
         EYE_TO_HAND
     };
@@ -24,7 +22,7 @@ public:
     // 添加数据点
     // pixel: 图像坐标 (u, v)
     // robotPose: 机器人位姿 (x, y, theta_rad)
-    void addObservation(const cv::Point2f &pixel, const cv::Vec3f &robotPose);
+    void addObservation(const cv::Point2f& pixel, const cv::Vec3f& robotPose);
 
     // 执行标定
     bool calibrate();
@@ -46,13 +44,13 @@ private:
     bool calibrateEyeInHand();
 
     // 辅助：将 (x, y, theta) 转换为 3x3 矩阵
-    cv::Mat poseToMatrix(const cv::Vec3f &pose);
+    cv::Mat poseToMatrix(const cv::Vec3f& pose);
 
 private:
     CalibrationMode m_mode;
     std::vector<cv::Point2f> m_pixels;
     std::vector<cv::Vec3f> m_robotPoses; // x, y, theta
-
+    
     cv::Mat m_resultMatrix; // 3x3 Affine Matrix
     double m_reprojectionError;
 };
